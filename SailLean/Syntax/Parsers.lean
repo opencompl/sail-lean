@@ -1,125 +1,180 @@
 import SailLean.Syntax.Cats
+import Lean.PrettyPrinter.Formatter
+import Lean.PrettyPrinter.Parenthesizer
 
 /-!
 # Declaring the Sail syntax
 -/
 
-open Lean.Parser
+open Lean Parser
 namespace Sail
 
-/- `operator` -/
+/- `id` (identifier) -/
 
-syntax "!" : operator
-syntax "%" : operator
-syntax "&" : operator
-syntax "*" : operator
-syntax "+" : operator
-syntax "." : operator
-syntax "/" : operator
-syntax ":" : operator
-syntax "<" : operator
-syntax ">" : operator
-syntax "=" : operator
-syntax "@" : operator
-syntax operator noWs "_" noWs ident : operator
--- TODO
+syntax ident : id
+syntax "bool" : id
+syntax "bit" : id
+syntax "unit" : id
+syntax "nat" : id
+syntax "string" : id
+syntax "range" : id
+syntax "atom" : id
+syntax "vector" : id
+syntax "list" : id
+syntax "reg" : id
+syntax "to_num" : id
+syntax "to_vec" : id
+syntax "msb" : id
 
-syntax "`[operator|" operator "]" : term
+syntax "`[id|" id "]" : term
 
-/- `type_variable` -/
--- syntax "'" noWs ident : type_variable -- TODO add `'` to token list
+/- `kid` (kinded IDs) -/
 
-syntax "`[type_variable|" type_variable "]" : term
+def singleSingleQuote : Parser := rawCh '\'' (trailingWs := false)
 
-/- `op` -/
+@[combinator_formatter singleSingleQuote]
+def singleSingleQuote.formatter := PrettyPrinter.Formatter.visitAtom Name.anonymous
 
-syntax operator : op
--- TODO
+@[combinator_parenthesizer singleSingleQuote]
+def singleSingleQuote.parenthesizer := PrettyPrinter.Parenthesizer.visitToken
 
-syntax "`[op|" op "]" : term
+syntax singleSingleQuote noWs ident : kid
 
-/- `typ_var` -/
+syntax "`[kid|" kid "]" : term
 
-syntax typ_var := type_variable
+-- #eval `[kid|'foo] TODO fix this
 
-/- `tyarg` -/
+/- `base_kind` -/
 
-syntax tyarg := "(" typ,+ ")"
+syntax "Type" : base_kind
+syntax "Nat" : base_kind
+syntax "Order" : base_kind
+syntax "Effect" : base_kind
 
-/- `prefix_typ_op` -/
-
--- syntax "2^" : prefix_typ_op -- TODO add `2^` to token list
-syntax "-" : prefix_typ_op
-syntax "*" : prefix_typ_op
-
-syntax "`[prefix_typ_op|" prefix_typ_op "]" : term
-
-/- `typ_no_caret` -/
-
-syntax (prefix_typ_op)? atomic_typ (op_no_caret prefix_typ_op prefix_typ_op)* : typ_no_caret
-
-syntax "`[typ_no_caret|" typ_no_caret "]" : term
-
-/- `typ` -/
-
-syntax "if" infix_typ "then" infix_typ "else" : typ
-syntax infix_typ : typ
-
-syntax "`[typ|" typ "]" : term
-
-/- `infix_typ` -/
-
-syntax (prefix_typ_op)? atomic_typ (op prefix_typ_op prefix_typ_op)* : infix_typ
-
-syntax "`[infix_typ" infix_typ "]" : term
-
-/- `atomic_typ` -/
-
-syntax ident : atomic_typ
-syntax "_" : atomic_typ
--- syntax typ_var : atomic_typ
-syntax "dec" : atomic_typ
-syntax "inc" : atomic_typ
--- syntax id tyarg : atomic_typ
-syntax "register (" typ ")" : atomic_typ
-syntax "(" typ,+ ")" : atomic_typ -- uh oh
-syntax "{" num "}" : atomic_typ
--- syntax "{" kopt "." typ "}"
--- syntax "{" kopt "," typ "." typ "}"
-
-syntax "`[atomic_typ|" atomic_typ "]" : term
+syntax "`[base_kind| " base_kind "]" : term
 
 /- `kind` -/
 
-syntax "Int" : kind
-syntax "Type" : kind
-syntax "Order" : kind
-syntax "Bool" : kind
+syntax sepBy1(base_kind, "->") : kind
 
 syntax "`[kind|" kind "]" : term
 
-/- `kopt` -/
+/- `nexp` (numeric expression, of kind `Nat`)-/
 
-syntax "(" "constant" typ_var ":" kind ")" : kopt
+syntax ident : nexp  -- abbreviation identifier
+syntax kid : nexp  -- variable
+syntax num : nexp  -- constant
+syntax nexp "*" nexp : nexp
+syntax nexp "+" nexp : nexp
+syntax nexp "-" nexp : nexp
+syntax "(" nexp ")" : nexp
+syntax num noWs "**" nexp : nexp  -- TODO `num` must be `2`
 
-syntax "`[kopt|" kopt "]" : term
+macro_rules | `(nexp|($x)) => `(nexp|$x)
+
+syntax "`[nexp|" nexp "]" : term
+
+/- `order` (vector order specifications, of kind `Order`)-/
+
+syntax kid : order
+syntax "inc" : order
+syntax "dec" : order
+syntax "(" order ")" : order
+
+macro_rules | `(order|($x)) => `(order|$x)
+
+syntax "`[order|" order "]" : term
+
+/- `base_effect` -/
+
+syntax "rreg" : base_effect
+syntax "wreg" : base_effect
+syntax "rmem" : base_effect
+syntax "wmem" : base_effect
+syntax "wmea" : base_effect
+syntax "wmv" : base_effect
+syntax "barr" : base_effect
+syntax "depend" : base_effect
+syntax "undef" : base_effect
+syntax "unspec" : base_effect
+syntax "nondet" : base_effect
+syntax "escape" : base_effect
+syntax "lset" : base_effect
+syntax "lret" : base_effect
+
+/- `effect` (effect set, of kind `Effect`)-/
+
+syntax kid : effect
+syntax "{" base_effect,* "}" : effect
+syntax "pure" : effect
+syntax sepBy1(effect, "⊎") : effect
+
+syntax "`[effect|" effect "]" : term
+
+/- `typ` (type expressions, of kind `Type`)-/
+
+syntax "_" : typ  -- unspecified type
+syntax ident : typ  -- specified type
+syntax kid : typ  -- type variable
+syntax typ "->" typ "effect" effect : typ  -- function
+syntax "(" typ,* ")" : typ  -- tuple
+syntax id "<" typ_arg,* ">" : typ  -- type constructor application
+syntax "(" typ ")" : typ
+syntax "[|" nexp "|]" : typ
+syntax "[|" nexp ":" nexp "|]" : typ
+syntax "[:" nexp ":]" : typ
+
+syntax "`[typ|" typ "]" : term
+
+/- `typ_arg` (type constructor arguments of all kinds) -/
+syntax nexp : typ_arg
+syntax typ : typ_arg
+syntax order : typ_arg
+--syntax effect : typ_arg  -- ???
+
+syntax "`[typ_arg|" typ_arg "]" : term
+
+/- `n_constraint` (constraint over kind `Nat`) -/
+
+syntax nexp "=" nexp : n_constraint
+syntax nexp ">=" nexp : n_constraint
+syntax nexp "<=" nexp : n_constraint
+syntax kid "IN" "{" num,* "}" : n_constraint
+
+syntax "`[n_constraint|" n_constraint "]" : term
+
+/- `kinded_id` (optionally kind-annotated identifier) -/
+
+syntax kid : kinded_id  -- identifier
+syntax kind kid : kinded_id  -- kind-annotated variable
+
+syntax "`[kinded_id|" kinded_id "]" : term
+
+/- `quant_item` (kinded identifier or `Nat` constraint) -/
+
+syntax kinded_id : quant_item
+syntax n_constraint : quant_item
+
+syntax "`[quant_item|" quant_item "]" : term
+
+/- `typquant` (type quantifiers and constraints) -/
+
+syntax "forall" quant_item,* "." : typquant
+
+syntax "`[typquant|" typquant "]" : term
+
+/- `typschm` (type scheme) -/
+
+syntax typquant typ : typschm
+
+syntax "`[typschm|" typschm "]" : typschm
 
 
-/- `typschm` -/
+/- Additional syntax sugar -/
 
-syntax ("forall" quantifier ".")? typ ("->" <|> "<->") typ : typschm
-
-syntax "`[typschm|" typschm "]" : term
-
-/- `lit` -/
-
-syntax "true" : lit
-syntax "false" : lit
-syntax "()" : lit
-syntax num : lit
-syntax str : lit
-syntax "undefined" : lit
-syntax "bitzero" : lit
-syntax "bitone" : lit
-
-syntax "`[lit|" lit "]" : term
+macro_rules
+  --| `(typ|($t:typ)) => `(typ|$t)  -- ???
+  | `(typ|[|$n|]) => `(typ|range<0, $n:nexp>)
+  | `(typ|[|$n : $n'|]) => `(typ|range<$n:nexp, $n':nexp>)
+  | `(typ|[: $n :]) => `(typ|atom<$n:nexp>)
+-- TODO vector syntax sugar
