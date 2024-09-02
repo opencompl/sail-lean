@@ -7,6 +7,8 @@ import SailLean.Syntax.Cats
 open Lean.Parser
 namespace Sail
 
+/- `operator` -/
+
 syntax "!" : operator
 syntax "%" : operator
 syntax "&" : operator
@@ -24,25 +26,54 @@ syntax operator noWs "_" noWs ident : operator
 
 syntax "`[operator|" operator "]" : term
 
+/- `type_variable` -/
+-- syntax "'" noWs ident : type_variable -- TODO add `'` to token list
+
+syntax "`[type_variable|" type_variable "]" : term
+
+/- `op` -/
+
 syntax operator : op
 -- TODO
 
 syntax "`[op|" op "]" : term
 
-syntax "true" : lit
-syntax "false" : lit
--- TODO
+/- `typ_var` -/
 
-syntax "`[lit|" lit "]" : term
+syntax typ_var := type_variable
+
+/- `tyarg` -/
+
+syntax tyarg := "(" typ,+ ")"
+
+/- `prefix_typ_op` -/
+
+-- syntax "2^" : prefix_typ_op -- TODO add `2^` to token list
+syntax "-" : prefix_typ_op
+syntax "*" : prefix_typ_op
+
+syntax "`[prefix_typ_op|" prefix_typ_op "]" : term
+
+/- `typ_no_caret` -/
+
+syntax (prefix_typ_op)? atomic_typ (op_no_caret prefix_typ_op prefix_typ_op)* : typ_no_caret
+
+syntax "`[typ_no_caret|" typ_no_caret "]" : term
+
+/- `typ` -/
 
 syntax "if" infix_typ "then" infix_typ "else" : typ
 syntax infix_typ : typ
 
 syntax "`[typ|" typ "]" : term
 
-syntax prefix_typ_op postfix_typ (op prefix_typ_op prefix_typ_op)* : infix_typ
+/- `infix_typ` -/
+
+syntax (prefix_typ_op)? atomic_typ (op prefix_typ_op prefix_typ_op)* : infix_typ
 
 syntax "`[infix_typ" infix_typ "]" : term
+
+/- `atomic_typ` -/
 
 syntax ident : atomic_typ
 syntax "_" : atomic_typ
@@ -58,9 +89,37 @@ syntax "{" num "}" : atomic_typ
 
 syntax "`[atomic_typ|" atomic_typ "]" : term
 
+/- `kind` -/
+
 syntax "Int" : kind
 syntax "Type" : kind
 syntax "Order" : kind
 syntax "Bool" : kind
 
 syntax "`[kind|" kind "]" : term
+
+/- `kopt` -/
+
+syntax "(" "constant" typ_var ":" kind ")" : kopt
+
+syntax "`[kopt|" kopt "]" : term
+
+
+/- `typschm` -/
+
+syntax ("forall" quantifier ".")? typ ("->" <|> "<->") typ : typschm
+
+syntax "`[typschm|" typschm "]" : term
+
+/- `lit` -/
+
+syntax "true" : lit
+syntax "false" : lit
+syntax "()" : lit
+syntax num : lit
+syntax str : lit
+syntax "undefined" : lit
+syntax "bitzero" : lit
+syntax "bitone" : lit
+
+syntax "`[lit|" lit "]" : term
