@@ -67,8 +67,8 @@ syntax num : nexp  -- constant
 syntax nexp "*" nexp : nexp
 syntax nexp "+" nexp : nexp
 syntax nexp "-" nexp : nexp
+syntax num noWs "**" nexp : nexp  -- TODO `num` must be `2`  -- exponential
 syntax "(" nexp ")" : nexp
-syntax num noWs "**" nexp : nexp  -- TODO `num` must be `2`
 
 macro_rules | `(nexp|($x)) => `(nexp|$x)
 
@@ -114,7 +114,7 @@ syntax "`[effect|" effect "]" : term
 /- `typ` (type expressions, of kind `Type`)-/
 
 syntax "_" : typ  -- unspecified type
-syntax ident : typ  -- specified type
+syntax id : typ  -- specified type
 syntax kid : typ  -- type variable
 syntax typ "->" typ "effect" effect : typ  -- function
 syntax "(" typ,* ")" : typ  -- tuple
