@@ -107,6 +107,39 @@ partial def elabTypArg : TSyntax `typ_arg → Except String AST.TypArg
   | `(typ_arg| $t:typ) => .typ <$> elabTyp t
   | `(typ_arg| $o:order) => .order <$> elabOrder o
   | `(typ_arg| $e:effect') => .effect <$> elabEffect e
-  | _ => .error "failt to elab typ_arg"
+  | _ => .error "failed to elab typ_arg"
 
 end
+
+def elabNConstraint : TSyntax `n_constraint → Except String AST.NConstraint
+  | `(n_constraint| $m:nexp = $n:nexp) => .eq <$> elabNExp m <*> elabNExp n
+  | `(n_constraint| $m:nexp <= $n:nexp) => .le <$> elabNExp m <*> elabNExp n
+  | `(n_constraint| $m:nexp >= $n:nexp) => .eq <$> elabNExp m <*> elabNExp n
+  | `(n_constraint| $k:kid IN { $ns,* }) => do
+      let ns := ns.getElems.map (·.getNat)
+      let k ← elabKId k
+      .ok <| .in k (Std.HashSet.ofArray ns)
+  | _ => .error "failed to elab n_constraint"
+
+def elabKindedId : TSyntax `kinded_id → Except String AST.KindedId
+  | `(kinded_id| $k:kid) => .kId <$> elabKId k
+  | `(kinded_id| $k:kind $i:kid) => .annotated <$> elabKind k <*> elabKId i
+  | _ => .error "failed to elab kinded_id"
+
+def elabQuantItem : TSyntax `quant_item → Except String AST.QuantItem
+  | `(quant_item| $k:kinded_id) => .kindedId <$> elabKindedId k
+  | `(quant_item| $n:n_constraint) => .nConstraint <$> elabNConstraint n
+  | _ => .error "failed to elab quant_item"
+
+def elabTypQuant : TSyntax `typquant → Except String AST.TypQuant
+  | `(typquant| forall $qs:quant_item,* .) => do
+      let qs ← qs.getElems.mapM elabQuantItem
+      .ok qs.toList
+  | _ => .error "failed to elab typquant"
+
+def elabTypschm : TSyntax `typschm → Except String AST.Typschm
+  | `(typschm| $tq:typquant $t:typ) => do
+      let tq ← elabTypQuant tq
+      let t ← elabTyp t
+      .ok { quants := tq, typ := t }
+  | _  => .error "failed to elab typschm"
