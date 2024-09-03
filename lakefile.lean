@@ -1,6 +1,8 @@
 import Lake
 open Lake DSL
 
+require "leanprover-community" / "batteries" @ git "main"
+
 package «SailLean» {
   -- add package configuration options here
 }
