@@ -1,12 +1,11 @@
 import SailLean.Syntax.Cats
-import Lean.PrettyPrinter.Formatter
-import Lean.PrettyPrinter.Parenthesizer
+import Lean
 
 /-!
 # Declaring the Sail syntax
 -/
 
-open Lean Parser
+open Lean Meta Parser Elab Command
 namespace Sail
 
 /- `id` (identifier) -/
@@ -30,7 +29,7 @@ syntax "`[id|" id "]" : term
 
 /- `kid` (kinded IDs) -/
 
-def singleSingleQuote : Parser := rawCh '\'' (trailingWs := false)
+def singleSingleQuote : Parser := rawCh '@'  -- TODO exchange `@` for a `'` or work around
 
 @[combinator_formatter singleSingleQuote]
 def singleSingleQuote.formatter := PrettyPrinter.Formatter.visitAtom Name.anonymous
@@ -41,8 +40,6 @@ def singleSingleQuote.parenthesizer := PrettyPrinter.Parenthesizer.visitToken
 syntax singleSingleQuote noWs ident : kid
 
 syntax "`[kid|" kid "]" : term
-
--- #eval `[kid|'foo] TODO fix this
 
 /- `base_kind` -/
 
@@ -104,19 +101,19 @@ syntax "lret" : base_effect
 
 /- `effect` (effect set, of kind `Effect`)-/
 
-syntax kid : effect
-syntax "{" base_effect,* "}" : effect
-syntax "pure" : effect
-syntax sepBy1(effect, "⊎") : effect
+syntax kid : effect'
+syntax "{" base_effect,* "}" : effect'
+syntax "pure" : effect'
+-- syntax sepBy1(effect, "⊎") : effect  -- TODO problematic, turned off for now
 
-syntax "`[effect|" effect "]" : term
+syntax "`[effect|" effect' "]" : term
 
 /- `typ` (type expressions, of kind `Type`)-/
 
 syntax "_" : typ  -- unspecified type
 syntax id : typ  -- specified type
 syntax kid : typ  -- type variable
-syntax typ "->" typ "effect" effect : typ  -- function
+syntax typ "->" typ "effect" effect' : typ  -- function
 syntax "(" typ,* ")" : typ  -- tuple
 syntax id "<" typ_arg,* ">" : typ  -- type constructor application
 syntax "(" typ ")" : typ
@@ -130,7 +127,7 @@ syntax "`[typ|" typ "]" : term
 syntax nexp : typ_arg
 syntax typ : typ_arg
 syntax order : typ_arg
---syntax effect : typ_arg  -- ???
+syntax effect' : typ_arg  -- ???
 
 syntax "`[typ_arg|" typ_arg "]" : term
 

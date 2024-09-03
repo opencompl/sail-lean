@@ -1,4 +1,4 @@
-import Lean.Data.HashSet
+import Std.Data.HashSet
 
 namespace Sail.AST
 
@@ -7,8 +7,8 @@ namespace Sail.AST
 -/
 
 inductive Id where
-  | ident (i : String)
-  | nool
+  | ident (i : Lean.Name)
+  | bool
   | bit
   | unit
   | nat
@@ -20,22 +20,24 @@ inductive Id where
   | reg
   | toNum
   | toVec
-  | mSB
+  | msb
 
-def KId := String
+def KId := Lean.Name
 
 inductive BaseKind where
-  | int
   | type
+  | nat
   | order
-  | bool
+  | effect
+  deriving Inhabited
 
 structure Kind where
   args : List BaseKind
   kind : BaseKind
 
 inductive NExp where
-  | ident (i : String)
+  | ident (i : Lean.Name)
+  | kId (k : KId)
   | num (n : Nat)
   | mul (m n : NExp)
   | add (m n : NExp)
@@ -66,7 +68,7 @@ inductive BaseEffect where
 
 inductive Effect where
   | kId (k : KId)
-  | set (bs : Lean.HashSet BaseEffect)
+  | set (bs : Std.HashSet BaseEffect)
   | pure  -- TODO maybe macro this away
   | union (es : List Effect)  -- TODO maybe macro this away
 
@@ -78,7 +80,7 @@ inductive Typ where
   | kId (k : KId)
   | function (dom cod : Typ) (effect : Effect)
   | tuple (ts : List Typ)
-  | tconstructor (i : Id) (args : TypArg)
+  | tconstructor (i : Id) (args : List TypArg)
 
 inductive TypArg where
   | nexp (n : NExp)
@@ -92,7 +94,7 @@ inductive NConstraint
   | eq (m n : NExp)
   | le (m n : NExp)
   | ge (m n : NExp)
-  | in (k : KId) (ns : Lean.HashSet Nat)
+  | in (k : KId) (ns : Std.HashSet Nat)
 
 inductive KindedId
   | kId (k : KId)
