@@ -8,6 +8,7 @@ As listed on the [Sail documentation](https://alasdair.github.io/manual.html#_th
 Categories not needed from the Sail grammar:
 * `typ_list` is `typ,+`
 * `postfix_typ` is `atomic_typ`
+* `kid` will be defined as being `'` followed by an `ident`
 
 # TODO
 * add remaining syntax cats
@@ -18,7 +19,6 @@ Categories not needed from the Sail grammar:
 namespace Sail
 
 declare_syntax_cat id
-declare_syntax_cat kid
 declare_syntax_cat base_kind
 declare_syntax_cat kind
 declare_syntax_cat nexp

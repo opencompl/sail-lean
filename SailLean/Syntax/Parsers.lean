@@ -29,7 +29,7 @@ syntax "`[id|" id "]" : term
 
 /- `kid` (kinded IDs) -/
 
-def singleSingleQuote : Parser := rawCh '@'  -- TODO exchange `@` for a `'` or work around
+def singleSingleQuote : Parser := rawCh '\''  -- TODO exchange `@` for a `'` or work around
 
 @[combinator_formatter singleSingleQuote]
 def singleSingleQuote.formatter := PrettyPrinter.Formatter.visitAtom Name.anonymous
@@ -37,7 +37,7 @@ def singleSingleQuote.formatter := PrettyPrinter.Formatter.visitAtom Name.anonym
 @[combinator_parenthesizer singleSingleQuote]
 def singleSingleQuote.parenthesizer := PrettyPrinter.Parenthesizer.visitToken
 
-syntax singleSingleQuote noWs ident : kid
+syntax kid := singleSingleQuote noWs ident
 
 syntax "`[kid|" kid "]" : term
 

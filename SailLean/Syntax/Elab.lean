@@ -28,7 +28,7 @@ def elabId : TSyntax `id → Except String AST.Id
   | `(id| $i:ident) => .ok <| .ident i.getId
   | _ => .error "failed to elab id"
 
-def elabKId : TSyntax `kid → Except String AST.KId
+def elabKId : TSyntax `Sail.kid → Except String AST.KId
   | `(kid| @$i:ident) => .ok i.getId
   | _ => .error "failed to elab kid"
 
@@ -92,7 +92,8 @@ partial def elabTyp : TSyntax `typ → Except String AST.Typ
   | `(typ| _) => .ok .unspecified
   | `(typ| $i:id) => .id <$> (elabId i)
   | `(typ| $k:kid) => .kId <$> (elabKId k)
-  --| `(typ| $cod:typ -> $dom:typ effect $e:effect) => _  produces stack overflows
+  | `(typ| $cod:typ -> $dom:typ effect $e:effect') =>
+      .function <$> elabTyp dom <*> elabTyp cod <*> elabEffect e
   | `(typ| ($ts:typ,*)) => do
       let ts ← ts.getElems.mapM elabTyp
       .ok <| .tuple ts.toList
