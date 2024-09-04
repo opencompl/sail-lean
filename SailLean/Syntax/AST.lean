@@ -10,7 +10,7 @@ namespace Sail.AST
 inductive Id where
   | ident (i : Lean.Name)
   | operator (i : Lean.Name)
-  deriving Lean.ToExpr, Repr
+  deriving Lean.ToExpr, Repr, BEq, Hashable
 
 def KId := Lean.Name
   deriving Lean.ToExpr, Repr
