@@ -29,7 +29,12 @@ syntax "`[id|" id "]" : term
 
 /- `kid` (kinded IDs) -/
 
-def singleSingleQuote : Parser := rawCh '\''  -- TODO exchange `@` for a `'` or work around
+def singleSingleQuote : Parser := rawCh '@'  -- TODO exchange `@` for a `'` or work around
+
+def singleSingleQuote' :=
+{ singleSingleQuote with info := { collectKinds := fun s => s.insert `cat1
+                                   collectTokens := fun ts => ts ++ ["'"]
+                                   firstTokens := .tokens ["'"] } }
 
 @[combinator_formatter singleSingleQuote]
 def singleSingleQuote.formatter := PrettyPrinter.Formatter.visitAtom Name.anonymous
@@ -39,7 +44,16 @@ def singleSingleQuote.parenthesizer := PrettyPrinter.Parenthesizer.visitToken
 
 syntax kid := singleSingleQuote noWs ident
 
-syntax "`[kid|" kid "]" : term
+/-declare_syntax_cat cat1
+syntax (singleSingleQuote)? ident : cat1
+
+syntax "`[cat1|" cat1 "]" : term
+
+#eval `[cat1|'foo]
+
+#check PrettyPrinter.Formatter.parseToken
+
+#exit-/
 
 /- `base_kind` -/
 
@@ -48,7 +62,7 @@ syntax "Nat" : base_kind
 syntax "Order" : base_kind
 syntax "Effect" : base_kind
 
-syntax "`[base_kind| " base_kind "]" : term
+syntax "`[base_kind|" base_kind "]" : term
 
 /- `kind` -/
 

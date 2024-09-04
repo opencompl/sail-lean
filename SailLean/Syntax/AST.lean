@@ -1,4 +1,5 @@
 import Std.Data.HashSet
+import Mathlib.Tactic.DeriveToExpr
 
 namespace Sail.AST
 
@@ -21,19 +22,22 @@ inductive Id where
   | toNum
   | toVec
   | msb
+  deriving Lean.ToExpr, Repr
 
 def KId := Lean.Name
+  deriving Lean.ToExpr, Repr
 
 inductive BaseKind where
   | type
   | nat
   | order
   | effect
-  deriving Inhabited
+  deriving Inhabited, Lean.ToExpr, Repr
 
 structure Kind where
   args : List BaseKind
   kind : BaseKind
+  deriving Lean.ToExpr, Repr
 
 inductive NExp where
   | ident (i : Lean.Name)
@@ -43,11 +47,13 @@ inductive NExp where
   | add (m n : NExp)
   | sub (m n : NExp)
   | exponential (n : NExp)
+  deriving Lean.ToExpr, Repr
 
 inductive Order where
   | kId (k : KId)
   | dec
   | inc
+  deriving Lean.ToExpr, Repr
 
 inductive BaseEffect where
   | rreg
@@ -64,13 +70,14 @@ inductive BaseEffect where
   | escape
   | lset
   | lret
-  deriving BEq, Hashable
+  deriving BEq, Hashable, Lean.ToExpr, Repr
 
 inductive Effect where
   | kId (k : KId)
   | set (bs : Std.HashSet BaseEffect)
   | pure  -- TODO maybe macro this away
   | union (es : List Effect)  -- TODO maybe macro this away
+  deriving Repr
 
 mutual
 
@@ -81,12 +88,14 @@ inductive Typ where
   | function (dom cod : Typ) (effect : Effect)
   | tuple (ts : List Typ)
   | tconstructor (i : Id) (args : List TypArg)
+  deriving Repr
 
 inductive TypArg where
   | nexp (n : NExp)
   | typ (t : Typ)
   | order (o : Order)
   | effect (e : Effect)
+  deriving Repr
 
 end
 
@@ -95,17 +104,22 @@ inductive NConstraint
   | le (m n : NExp)
   | ge (m n : NExp)
   | in (k : KId) (ns : Std.HashSet Nat)
+  deriving Repr
 
 inductive KindedId
   | kId (k : KId)
   | annotated (k : Kind) (k' : KId)
+  deriving Repr
 
 inductive QuantItem
   | kindedId (k : KindedId)
   | nConstraint (n : NConstraint)
+  deriving Repr
 
 def TypQuant := List QuantItem
+  deriving Repr
 
 structure Typschm where
   quants : TypQuant
   typ : Typ
+  deriving Repr

@@ -1,7 +1,8 @@
 import Lake
 open Lake DSL
 
-require "leanprover-community" / "batteries" @ git "main"
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4" @ "master"
 
 package «SailLean» {
   -- add package configuration options here

@@ -93,7 +93,7 @@ partial def elabTyp : TSyntax `typ → Except String AST.Typ
   | `(typ| $i:id) => .id <$> (elabId i)
   | `(typ| $k:kid) => .kId <$> (elabKId k)
   | `(typ| $cod:typ -> $dom:typ effect $e:effect') =>
-      .function <$> elabTyp dom <*> elabTyp cod <*> elabEffect e
+      .function <$> elabTyp cod <*> elabTyp dom <*> elabEffect e
   | `(typ| ($ts:typ,*)) => do
       let ts ← ts.getElems.mapM elabTyp
       .ok <| .tuple ts.toList
