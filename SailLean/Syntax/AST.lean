@@ -9,107 +9,76 @@ namespace Sail.AST
 
 inductive Id where
   | ident (i : Lean.Name)
-  | bool
-  | bit
-  | unit
-  | nat
-  | string
-  | range
-  | atom
-  | vector
-  | list
-  | reg
-  | toNum
-  | toVec
-  | msb
+  | operator (i : Lean.Name)
   deriving Lean.ToExpr, Repr
 
 def KId := Lean.Name
   deriving Lean.ToExpr, Repr
 
-inductive BaseKind where
+inductive Kind where
   | type
-  | nat
-  | order
-  | effect
+  | int
+  | bool
   deriving Inhabited, Lean.ToExpr, Repr
-
-structure Kind where
-  args : List BaseKind
-  kind : BaseKind
-  deriving Lean.ToExpr, Repr
-
-inductive NExp where
-  | ident (i : Lean.Name)
-  | kId (k : KId)
-  | num (n : Nat)
-  | mul (m n : NExp)
-  | add (m n : NExp)
-  | sub (m n : NExp)
-  | exponential (n : NExp)
-  deriving Lean.ToExpr, Repr
-
-inductive Order where
-  | kId (k : KId)
-  | dec
-  | inc
-  deriving Lean.ToExpr, Repr
-
-inductive BaseEffect where
-  | rreg
-  | wreg
-  | rmem
-  | wmem
-  | wmea
-  | wmv
-  | barr
-  | depend
-  | undef
-  | unspec
-  | nondet
-  | escape
-  | lset
-  | lret
-  deriving BEq, Hashable, Lean.ToExpr, Repr
-
-inductive Effect where
-  | kId (k : KId)
-  | set (bs : Std.HashSet BaseEffect)
-  | pure  -- TODO maybe macro this away
-  | union (es : List Effect)  -- TODO maybe macro this away
-  deriving Repr
-
-mutual
-
-inductive Typ where
-  | unspecified
-  | id (i : Id)
-  | kId (k : KId)
-  | function (dom cod : Typ) (effect : Effect)
-  | tuple (ts : List Typ)
-  | tconstructor (i : Id) (args : List TypArg)
-  deriving Repr
-
-inductive TypArg where
-  | nexp (n : NExp)
-  | typ (t : Typ)
-  | order (o : Order)
-  | effect (e : Effect)
-  deriving Repr
-
-end
-
-inductive NConstraint
-  | eq (m n : NExp)
-  | le (m n : NExp)
-  | ge (m n : NExp)
-  | in (k : KId) (ns : Std.HashSet Nat)
-  deriving Repr
 
 inductive KindedId
   | kId (k : KId)
   | annotated (k : Kind) (k' : KId)
   deriving Repr
+
+inductive Order where
+  | dec
+  | inc
+  deriving Repr
+
+mutual
+
+inductive NExp where
+  | id (i : Id)
+  | var (k : KId)
+  | constant (n : Nat)
+  | app (fn : Id) (ns : List NExp)
+  | ifThenElse (p : NConstraint) (t : NExp) (e : NExp)
+  | product (m n : NExp)
+  | sum (m n : NExp)
+  | subtraction (m n : NExp)
+  | exponential (n : NExp)
+  | neg (n : NExp)
+  deriving Repr
+
+inductive Typ where
+  | id (i : Id)
+  | var (k : KId)
+  | fn (args : List Typ) (dom : Typ)
+  | bidir (t s : Typ)
+  | tuple (ts : List Typ)
+  | app (i : Id) (args : List TypArg)
+  | exist (ids : List KindedId) (c : NConstraint) (t : Typ)
+  deriving Repr
+
+inductive TypArg where
+  | nexp (n : NExp)
+  | typ (t : Typ)
+  | bool (c : NConstraint)
+  deriving Repr
+
+inductive NConstraint
+  | equal (m n : TypArg)
+  | not_equal (m n : TypArg)
+  | ge (m n : NExp)
+  | gt (m n : NExp)
+  | le (m n : NExp)
+  | lt (m n : NExp)
+  | set (k : KId) (ns : Std.HashSet Nat)
+  | or (l r : NConstraint)
+  | and (l r : NConstraint)
+  | app (i : Lean.Name) (args : List TypArg)
+  | var (k : KId)
+  | true
+  | false
+  deriving Repr
+
+end
 
 inductive QuantItem
   | kindedId (k : KindedId)

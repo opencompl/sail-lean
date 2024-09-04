@@ -19,12 +19,9 @@ Categories not needed from the Sail grammar:
 namespace Sail
 
 declare_syntax_cat id
-declare_syntax_cat base_kind
 declare_syntax_cat kind
 declare_syntax_cat nexp
 declare_syntax_cat order
-declare_syntax_cat base_effect
-declare_syntax_cat effect'
 declare_syntax_cat typ
 declare_syntax_cat typ_arg
 declare_syntax_cat n_constraint
