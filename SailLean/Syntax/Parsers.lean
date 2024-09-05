@@ -87,7 +87,7 @@ syntax kid : typ  -- type variable
 syntax "(" typ,* ")" "->" typ : typ  -- function (first-order only)
 syntax typ "<->" typ : typ  -- mapping
 syntax "(" typ,* ")" : typ  -- tuple
-syntax id "(" typ_arg,* ")" : typ  -- type constructor application
+syntax id ("(" typ_arg,* ")")? : typ  -- type constructor application
 syntax "{" kinded_id* "," n_constraint "." typ "}" : typ  -- exist
 
 syntax "`[typ|" typ "]" : term

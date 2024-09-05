@@ -12,8 +12,8 @@ open Lean
 namespace Sail
 
 def elabId : TSyntax `id → Except String AST.Id
-  | `(id| $i:ident) => .ok <| .ident i.getId
-  | `(id| (operator $i)) => .ok <| .operator i.getId
+  | `(id| $i:ident) => .ok <| .ident i.getId.getRoot.toString
+  | `(id| (operator $i)) => .ok <| .operator i.getId.getRoot.toString
   | _ => .error "failed to elab id"
 
 def elabKId : TSyntax `Sail.kid → Except String AST.KId
@@ -56,7 +56,6 @@ partial def elabNExp : TSyntax `nexp → Except String AST.NExp
   | _ => .error "failed to elab nexp"
 
 partial def elabTyp : TSyntax `typ → Except String AST.Typ
-  | `(typ| $i:id) => .id <$> (elabId i)
   | `(typ| $k:kid) => .var <$> (elabKId k)
   | `(typ| ( $as:typ,* ) -> $t:typ ) => do
       let as ← as.getElems.mapM elabTyp
@@ -66,9 +65,12 @@ partial def elabTyp : TSyntax `typ → Except String AST.Typ
   | `(typ| ($ts:typ,*)) => do
       let ts ← ts.getElems.mapM elabTyp
       .ok <| .tuple ts.toList
-  | `(typ| $i:id ( $as:typ_arg,* )) => do
+  | `(typ| $i:id $[( $as:typ_arg,* )]?) => do
       let i ← elabId i
-      let as ← as.getElems.mapM elabTypArg
+      let as : TSyntaxArray `typ_arg := match as with
+        | .some as => as.getElems
+        | .none => #[]
+      let as ← as.mapM elabTypArg
       .ok <| .app i as.toList
   | `(typ| { $is:kinded_id* , $c:n_constraint . $t:typ }) => do
       let is ← is.mapM elabKindedId

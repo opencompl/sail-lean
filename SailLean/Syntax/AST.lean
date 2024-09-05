@@ -8,8 +8,8 @@ namespace Sail.AST
 -/
 
 inductive Id where
-  | ident (i : Lean.Name)
-  | operator (i : Lean.Name)
+  | ident (i : String)
+  | operator (i : String)
   deriving Lean.ToExpr, Repr, BEq, Hashable
 
 def KId := Lean.Name
@@ -19,7 +19,7 @@ inductive Kind where
   | type
   | int
   | bool
-  deriving Inhabited, Lean.ToExpr, Repr
+  deriving Inhabited, Lean.ToExpr, Repr, DecidableEq
 
 inductive KindedId
   | kId (k : KId)
@@ -47,7 +47,6 @@ inductive NExp where
   deriving Repr
 
 inductive Typ where
-  | id (i : Id)
   | var (k : KId)
   | fn (args : List Typ) (dom : Typ)
   | bidir (t s : Typ)
