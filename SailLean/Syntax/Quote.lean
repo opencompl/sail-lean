@@ -24,7 +24,8 @@ def quoteKind : AST.Kind → Q(Type 1)
   | .type => q(Type)
 
 def quoteTypArg : (a : AST.TypArg) → Q($(quoteKind a.kind))
-  | .nexp n => q(⟨42⟩)  -- TODO quote as equality somehow
+  | .nexp (.constant n) => q(⟨$n⟩)  -- TODO quote as equality somehow
+  | .nexp _ => q(⟨42⟩)  -- TODO
   | .typ t => q(Unit)  -- TODO need recursion here
   | .bool c => q(⟨True⟩)  -- TODO quote nconstraints
 
@@ -103,7 +104,6 @@ partial def quoteTyp (e : Env) : AST.Typ → Lean.Elab.Term.TermElabM Q(Type 1)
   | .tuple [t]     => quoteTyp e t
   | .tuple (t::ts) => return q($(← quoteTyp e t) × $(← quoteTyp e (.tuple ts)))
   | .app i args =>
-      --println! "fgoo"
       match e.typ_ids[i]? with
       | .some ⟨params, t⟩ =>
         match params with
@@ -118,10 +118,15 @@ partial def quoteTyp (e : Env) : AST.Typ → Lean.Elab.Term.TermElabM Q(Type 1)
          environment: {repr e.typ_ids.toList}"
   | _ => throwError "unable to quote type"
 
+def bar : AST.Typ := .app (.ident "fin") [.nexp (.constant 5)]
+
 def testTypeQuotation (stx : Lean.Elab.Term.TermElabM (Lean.TSyntax `typ)) :
     Lean.Elab.Term.TermElabM Lean.Format := do
-  let .ok astx := elabTyp (← stx) | throwError "unable to elaborate type"
-  let qt ← quoteTyp std_env astx
-  Lean.Meta.ppExpr qt
+  match elabTyp (← stx) with
+  | .error err => throwError err
+  | .ok astx =>
+    let qt ← quoteTyp std_env astx
+    let qt ← Core.betaReduce (← Meta.whnf qt)
+    Lean.Meta.ppExpr qt
 
-#eval testTypeQuotation `(typ|(foo))
+#eval testTypeQuotation `(typ|(bool, fin(5)) -> bool)

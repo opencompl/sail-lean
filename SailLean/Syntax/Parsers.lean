@@ -84,10 +84,9 @@ syntax "`[order|" order "]" : term
 -- TODO deal with unknown types
 syntax id : typ  -- defined type
 syntax kid : typ  -- type variable
-syntax "(" typ,* ")" "->" typ : typ  -- function (first-order only)
+syntax "(" typ,* ")" ("->" typ)? : typ  -- function (first-order only) and tuple
 syntax typ "<->" typ : typ  -- mapping
-syntax "(" typ,* ")" : typ  -- tuple
-syntax id ("(" typ_arg,* ")")? : typ  -- type constructor application
+syntax id noWs ("(" typ_arg,* ")")? : typ  -- type constructor application
 syntax "{" kinded_id* "," n_constraint "." typ "}" : typ  -- exist
 
 syntax "`[typ|" typ "]" : term
@@ -95,7 +94,7 @@ syntax "`[typ|" typ "]" : term
 /- `typ_arg` (type constructor arguments of all kinds) -/
 syntax nexp : typ_arg
 syntax typ : typ_arg
-syntax n_constraint : typ_arg
+--syntax n_constraint : typ_arg
 
 syntax "`[typ_arg|" typ_arg "]" : term
 

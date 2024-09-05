@@ -56,8 +56,9 @@ partial def elabNExp : TSyntax `nexp → Except String AST.NExp
   | _ => .error "failed to elab nexp"
 
 partial def elabTyp : TSyntax `typ → Except String AST.Typ
+  | `(typ| $i:id) => .app <$> elabId i <*> .ok []
   | `(typ| $k:kid) => .var <$> (elabKId k)
-  | `(typ| ( $as:typ,* ) -> $t:typ ) => do
+  | `(typ| ($as:typ,*) -> $t:typ ) => do
       let as ← as.getElems.mapM elabTyp
       let t ← elabTyp t
       .ok <| .fn as.toList t
@@ -65,7 +66,7 @@ partial def elabTyp : TSyntax `typ → Except String AST.Typ
   | `(typ| ($ts:typ,*)) => do
       let ts ← ts.getElems.mapM elabTyp
       .ok <| .tuple ts.toList
-  | `(typ| $i:id $[( $as:typ_arg,* )]?) => do
+  | `(typ| $i:id$[( $as:typ_arg,* )]?) => do
       let i ← elabId i
       let as : TSyntaxArray `typ_arg := match as with
         | .some as => as.getElems
@@ -80,9 +81,9 @@ partial def elabTyp : TSyntax `typ → Except String AST.Typ
   | _ => .error "failed to elab typ"
 
 partial def elabTypArg : TSyntax `typ_arg → Except String AST.TypArg
-  /-| `(typ_arg| $n:nexp) => .nexp <$> elabNExp n
-  | `(typ_arg| $t:typ) => .typ <$> elabTyp t-/
-  | `(typ_arg| $c:n_constraint) => .bool <$> elabNConstraint c
+  | `(typ_arg| $n:nexp) => .nexp <$> elabNExp n
+  | `(typ_arg| $t:typ) => .typ <$> elabTyp t
+  --| `(typ_arg| $c:n_constraint) => .bool <$> elabNConstraint c
   | _ => .error "failed to elab typ_arlkg"
 
 partial def elabNConstraint : TSyntax `n_constraint → Except String AST.NConstraint
