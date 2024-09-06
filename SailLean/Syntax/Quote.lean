@@ -17,16 +17,21 @@ def AST.TypArg.kind : AST.TypArg → AST.Kind
   | .bool _ => .bool
   | .typ _ => .type
 
-/-- Quote Sail's type parameter into `Type 1` (instead of `Type`, since they can be quoted to
-`Type`s) -/
-def quoteKind : AST.Kind → Q(Type 1)
-  | .int => q(ULift _root_.Int)
-  | .bool => q(ULift Prop)
+
+def kindUniv : AST.Kind → Expr
+  | .type => q(Type 1)
+  | _ => q(Type)
+
+/-- Quote Sail's type parameter into `Type 0` or `Type 1`. -/
+def quoteKind : (k : AST.Kind) → Expr
+  | .int => q(_root_.Int)
+  | .bool => q(Prop)
   | .type => q(Type)
 
 inductive QuantItem where
   | kId (k : AST.KId)
   | nConstraint (c : AST.NConstraint)  -- TODO maybe save in quoted form (`Q(Prop)`)
+  | dom
   deriving Inhabited, BEq
 
 def QuantItem.ofASTQuantItem : AST.QuantItem → QuantItem
@@ -38,74 +43,74 @@ abbrev TypeVarCtx := List QuantItem
 
 variable (ctx : TypeVarCtx)
 
-def quoteNExp : AST.NExp → Q(ULift.{1} Nat)
-  | .constant n => q(⟨$n⟩)
+def quoteNExp : AST.NExp → Q(Nat)
+  | .constant n => q($n)
   | .var k =>
     -- Look up the variable in the context to obtain the DeBruĳn index
     match ctx.indexOf? (.kId k) with
     | .some idx => Expr.bvar idx
     | .none => panic! "variable not found in context!"
-  | .sum m n => q(⟨$(quoteNExp m).down + $(quoteNExp n).down⟩)
-  | .product m n => q(⟨$(quoteNExp m).down * $(quoteNExp n).down⟩)
-  | .subtraction m n => q(⟨$(quoteNExp m).down - $(quoteNExp n).down⟩)  -- TODO[semantics] is this really a monus
+  | .sum m n => q($(quoteNExp m) + $(quoteNExp n))
+  | .product m n => q($(quoteNExp m) * $(quoteNExp n))
+  | .subtraction m n => q($(quoteNExp m) - $(quoteNExp n))  -- TODO[semantics] is this really a monus
   | _ => panic! "not able to quote this nexp yet!"
 
-def quoteTypArg : (a : AST.TypArg) → Q($(quoteKind a.kind))
+def quoteTypArg : (a : AST.TypArg) → Expr
   | .nexp n => quoteNExp ctx n
   | .typ t => q(Unit)  -- TODO need recursion here
-  | .bool c => q(⟨True⟩)  -- TODO quote nconstraints
+  | .bool c => q(True)  -- TODO quote nconstraints
+
+def AST.Kind.isType : AST.Kind → _root_.Bool
+  | .type => .true
+  | _ => .false
+
+def AST.Kind.level (k : AST.Kind) : Level := if k.isType then 1 else 0
+
+/-- Build the argument type out of a list of Sail kinds, also return its universe level -/
+def liftKindListToProduct : List AST.Kind → (Expr × Level)
+  | [] => (q(True), 0)
+  | [k] => (quoteKind k, k.level)
+  | k::ks =>
+    let l1 := k.level
+    let (e, l2) := liftKindListToProduct ks
+    (mkApp2 (mkConst `PProd [l1, l2]) (quoteKind k) e, mkLevelMax l1 l2)
+
+/-- Build the tuple of type arguments given a `List AST.TypArg`.
+It should have the type `(liftKindListToProduct (args.map AST.TypArg.kind)).1`.
+Also returns its universe level. -/
+def liftTypArgListToTuple : List AST.TypArg → Expr
+  | [] => (q(.intro) : Q(True))
+  | [a] => quoteTypArg ctx a
+  | (a::as) =>
+    let lhs := quoteTypArg ctx a
+    let l := a.kind.level
+    let tlhs := quoteKind a.kind
+    let rhs := liftTypArgListToTuple as
+    let (trhs, l') := liftKindListToProduct (as.map (·.kind))
+    mkApp4 (mkConst `PProd.mk [l, l']) tlhs trhs lhs rhs
+
+structure RegisteredType where
+  params : List AST.Kind := []
+  type : Expr
+
+instance : Repr RegisteredType where
+  reprPrec o _ :=
+    match o with
+    | ⟨params@ [], t⟩
+    | ⟨params@ (_::_), t⟩ => s!"({repr params}, { repr t }})"
 
 def liftListToProduct : List Q(Type) → Q(Type 1)
   | [] => q(PUnit.{2})
   | [t] => t
   | t::ts => q($t × $(liftListToProduct ts))
 
-def liftKindListToProduct : List AST.Kind → Q(Type 1) :=
-  liftListToProduct ∘ (·.map quoteKind)
-
-/-- Build a tuple -/
-def buildTuple (ts : List Expr) (es : List Expr) : Expr :=
- match ts, es with
- | [], [] => (q(.unit) : Q(PUnit.{2}))
- | [_], [e] => e
- | (t::ts), (e::es) => mkApp4 (.const `Prod.mk [mkLevelSucc levelOne]) t (liftListToProduct ts) e (buildTuple ts es)
- | _, _ => panic! "incorrect number of arguments!"
-
-/-- Build the tuple of type arguments given a `List AST.TypArg`.
-It should have the type `liftKindListToProduct (args.map AST.TypArg.kind)`. -/
-def liftTypArgListToTuple (args : List AST.TypArg) :
-    Q($(liftKindListToProduct (args.map AST.TypArg.kind))) :=
-  buildTuple (args.map (quoteKind ∘ AST.TypArg.kind)) (args.map (quoteTypArg ctx))
-
-def RegisteredTypeKind : List AST.Kind → Q(Type 1)
-  | [] => q(Type)
-  | args@(_::_) => q($(liftKindListToProduct args) → Type)
-
-@[simp]
-theorem registeredTypeKind_nil : RegisteredTypeKind [] = q(Type) := rfl
-
-@[simp]
-theorem registeredTypeKind_cons :
-     RegisteredTypeKind (a::as) = q($(liftKindListToProduct (a::as)) → Type) := rfl
-
-structure RegisteredType where
-  params : List AST.Kind := []
-  type : Q($(RegisteredTypeKind params))
-
-instance : Repr RegisteredType where
-  reprPrec o _ :=
-    match o with
-    | ⟨params@ [], t⟩
-    | ⟨params@ (_::_), t⟩ =>
-      s!"({repr params}, {by { simp at t; exact repr t }})"
-
 structure Env where
   typ_ids : Std.HashMap AST.Id RegisteredType
 
 /-- Quotes any Typ from the AST into the quotation of a Lean type, provided an environment -/
-partial def quoteTyp (e : Env) : AST.Typ → TermElabM Q(Type 1)
-  | .fn s t => return q($(← quoteTyp e s) → $(← quoteTyp e t))
-  | .tuple ts => return q($(liftListToProduct (← ts.mapM (quoteTyp e))))
+partial def quoteTyp (ctx : TypeVarCtx) (e : Env) : AST.Typ → TermElabM Q(Type 1)
+  | .fn s t => return q($(← quoteTyp ctx e s) → $(← quoteTyp (.dom :: ctx) e t))
+  | .tuple ts => return q($(liftListToProduct (← ts.mapM (quoteTyp ctx e))))
   | .app i args =>
       match e.typ_ids[i]? with
       | .some ⟨params, t⟩ =>
@@ -124,13 +129,13 @@ partial def quoteTyp (e : Env) : AST.Typ → TermElabM Q(Type 1)
 partial def quoteTypschm (e : Env) (ctx : TypeVarCtx := []) : AST.Typschm → TermElabM Q(Type 1)
   | ⟨[], t⟩ => quoteTyp ctx e t
   | ⟨q::qs, t⟩ => do
-    let head : Q(Type 1) := match q with
-      | .kindedId (.annotated k i) => quoteKind k
+    let (head, n) : Q(Type 1) × String := match q with
+      | .kindedId (.annotated k i) => (quoteKind k, i)
       | .nConstraint c => panic! "nconstraints not supported right now"  -- TODO
       | _ => panic! "need kind annotations for quantifiers right now"  -- TODO fill these in on the "way back up"
     let q := QuantItem.ofASTQuantItem q
     let body ← quoteTypschm e (q::ctx) ⟨qs, t⟩
-    return .forallE .anonymous head body .default
+    return .forallE (.mkSimple n) head body .default
 
 /- Testing -/
 
@@ -142,13 +147,12 @@ def sailBool : RegisteredType where
 
 def sailBits : RegisteredType where
   params := [.int]
-  type := q(BitVec ∘ Int.toNat ∘ ULift.down)  -- TODO see if the `ulift`s are getting too annoying to work with
+  type := q(BitVec ∘ Int.toNat)  -- TODO see if the `ulift`s are getting too annoying to work with
 
 /-- Example environment for tests -/
 def std_env : Env where
   typ_ids := Std.HashMap.ofList
-    [(.ident "bool", sailBool)
-     , (.ident "bits", sailBits)]
+    [(.ident "bool", sailBool), (.ident "bits", sailBits)]
 
 def testTypeQuotation (stx : TermElabM (Lean.TSyntax `typschm)) : TermElabM Lean.Format := do
   match elabTypschm (← stx) with
@@ -157,6 +161,7 @@ def testTypeQuotation (stx : TermElabM (Lean.TSyntax `typschm)) : TermElabM Lean
     let qt ← quoteTypschm std_env [] astx
     let qt ← Core.betaReduce (← Meta.whnf qt)
     let qt' := (← Meta.simpOnlyNames [`Function.comp_apply] qt).1
+    let _ ← Meta.inferType qt'
     Lean.Meta.ppExpr qt'
 
 #eval testTypeQuotation `(typschm| forall Int @m, Int @n. (bits(@m), bits(@n)) -> bits(@m + @n))
