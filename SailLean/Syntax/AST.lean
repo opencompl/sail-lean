@@ -12,8 +12,8 @@ inductive Id where
   | operator (i : String)
   deriving Lean.ToExpr, Repr, BEq, Hashable
 
-def KId := Lean.Name
-  deriving Lean.ToExpr, Repr
+def KId := String
+  deriving Lean.ToExpr, Repr, Inhabited, BEq
 
 inductive Kind where
   | type
@@ -24,7 +24,7 @@ inductive Kind where
 inductive KindedId
   | kId (k : KId)
   | annotated (k : Kind) (k' : KId)
-  deriving Repr
+  deriving Repr, BEq
 
 inductive Order where
   | dec
@@ -48,7 +48,7 @@ inductive NExp where
 
 inductive Typ where
   | var (k : KId)
-  | fn (args : List Typ) (dom : Typ)
+  | fn (args : Typ) (dom : Typ)
   | bidir (t s : Typ)
   | tuple (ts : List Typ)
   | app (i : Id) (args : List TypArg)
@@ -71,18 +71,18 @@ inductive NConstraint
   | set (k : KId) (ns : Std.HashSet Nat)
   | or (l r : NConstraint)
   | and (l r : NConstraint)
-  | app (i : Lean.Name) (args : List TypArg)
+  | app (i : Id) (args : List TypArg)
   | var (k : KId)
   | true
   | false
-  deriving Repr
+  deriving Repr, BEq
 
 end
 
 inductive QuantItem
   | kindedId (k : KindedId)
   | nConstraint (n : NConstraint)
-  deriving Repr
+  deriving Repr, BEq
 
 def TypQuant := List QuantItem
   deriving Repr

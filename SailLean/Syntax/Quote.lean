@@ -2,6 +2,7 @@ import SailLean.Syntax.AST
 import SailLean.Syntax.Elab
 import Aesop
 import Qq
+import Mathlib.Lean.Meta.Simp
 
 open Qq Lean Elab Term
 
@@ -19,13 +20,38 @@ def AST.TypArg.kind : AST.TypArg → AST.Kind
 /-- Quote Sail's type parameter into `Type 1` (instead of `Type`, since they can be quoted to
 `Type`s) -/
 def quoteKind : AST.Kind → Q(Type 1)
-  | .int => q(ULift Nat)
+  | .int => q(ULift _root_.Int)
   | .bool => q(ULift Prop)
   | .type => q(Type)
 
+inductive QuantItem where
+  | kId (k : AST.KId)
+  | nConstraint (c : AST.NConstraint)  -- TODO maybe save in quoted form (`Q(Prop)`)
+  deriving Inhabited, BEq
+
+def QuantItem.ofASTQuantItem : AST.QuantItem → QuantItem
+  | .nConstraint c => .nConstraint c
+  | .kindedId (.kId i) => .kId i
+  | .kindedId (.annotated _ i) => .kId i
+
+abbrev TypeVarCtx := List QuantItem
+
+variable (ctx : TypeVarCtx)
+
+def quoteNExp : AST.NExp → Q(ULift.{1} Nat)
+  | .constant n => q(⟨$n⟩)
+  | .var k =>
+    -- Look up the variable in the context to obtain the DeBruĳn index
+    match ctx.indexOf? (.kId k) with
+    | .some idx => Expr.bvar idx
+    | .none => panic! "variable not found in context!"
+  | .sum m n => q(⟨$(quoteNExp m).down + $(quoteNExp n).down⟩)
+  | .product m n => q(⟨$(quoteNExp m).down * $(quoteNExp n).down⟩)
+  | .subtraction m n => q(⟨$(quoteNExp m).down - $(quoteNExp n).down⟩)  -- TODO[semantics] is this really a monus
+  | _ => panic! "not able to quote this nexp yet!"
+
 def quoteTypArg : (a : AST.TypArg) → Q($(quoteKind a.kind))
-  | .nexp (.constant n) => q(⟨$n⟩)  -- TODO quote as equality somehow
-  | .nexp _ => q(⟨42⟩)  -- TODO
+  | .nexp n => quoteNExp ctx n
   | .typ t => q(Unit)  -- TODO need recursion here
   | .bool c => q(⟨True⟩)  -- TODO quote nconstraints
 
@@ -49,7 +75,7 @@ def buildTuple (ts : List Expr) (es : List Expr) : Expr :=
 It should have the type `liftKindListToProduct (args.map AST.TypArg.kind)`. -/
 def liftTypArgListToTuple (args : List AST.TypArg) :
     Q($(liftKindListToProduct (args.map AST.TypArg.kind))) :=
-  buildTuple (args.map (quoteKind ∘ AST.TypArg.kind)) (args.map quoteTypArg)
+  buildTuple (args.map (quoteKind ∘ AST.TypArg.kind)) (args.map (quoteTypArg ctx))
 
 def RegisteredTypeKind : List AST.Kind → Q(Type 1)
   | [] => q(Type)
@@ -76,40 +102,17 @@ instance : Repr RegisteredType where
 structure Env where
   typ_ids : Std.HashMap AST.Id RegisteredType
 
-def sailUnit : RegisteredType where
-  type := q(Unit)
-
-def sailBool : RegisteredType where
-  type := q(_root_.Bool)
-
-def sailFin : RegisteredType where
-  params := [.int]
-  type := q(Fin ∘ ULift.down)  -- TODO see if the `ulift`s are getting too annoying to work with
-
-def foo : List α → _root_.Bool
-  | [] => .false
-  | (_::_) => .true
-
-def std_env : Env where
-  typ_ids := Std.HashMap.ofList
-    [(.ident "bool", sailBool)
-     , (.ident "fin", sailFin)]
-
 /-- Quotes any Typ from the AST into the quotation of a Lean type, provided an environment -/
-partial def quoteTyp (e : Env) : AST.Typ → Lean.Elab.Term.TermElabM Q(Type 1)
-  | .fn []         dom => quoteTyp e dom
-  | .fn args       dom => return q($(liftListToProduct (← args.mapM (quoteTyp e)))
-                                      → $(← quoteTyp e dom))
-  | .tuple []      => return q(PUnit)
-  | .tuple [t]     => quoteTyp e t
-  | .tuple (t::ts) => return q($(← quoteTyp e t) × $(← quoteTyp e (.tuple ts)))
+partial def quoteTyp (e : Env) : AST.Typ → TermElabM Q(Type 1)
+  | .fn s t => return q($(← quoteTyp e s) → $(← quoteTyp e t))
+  | .tuple ts => return q($(liftListToProduct (← ts.mapM (quoteTyp e))))
   | .app i args =>
       match e.typ_ids[i]? with
       | .some ⟨params, t⟩ =>
         match params with
-        | [] => return t
+        | [] => return t  -- TODO wrap in effects monad
         | params@(_::_) => do
-          let argTuple := liftTypArgListToTuple args
+          let argTuple := liftTypArgListToTuple ctx args
           unless params = args.map AST.TypArg.kind do
             panic! "kind of argument do not match the kinds of parameters!"
           let e := mkApp t argTuple
@@ -118,15 +121,42 @@ partial def quoteTyp (e : Env) : AST.Typ → Lean.Elab.Term.TermElabM Q(Type 1)
          environment: {repr e.typ_ids.toList}"
   | _ => throwError "unable to quote type"
 
-def bar : AST.Typ := .app (.ident "fin") [.nexp (.constant 5)]
+partial def quoteTypschm (e : Env) (ctx : TypeVarCtx := []) : AST.Typschm → TermElabM Q(Type 1)
+  | ⟨[], t⟩ => quoteTyp ctx e t
+  | ⟨q::qs, t⟩ => do
+    let head : Q(Type 1) := match q with
+      | .kindedId (.annotated k i) => quoteKind k
+      | .nConstraint c => panic! "nconstraints not supported right now"  -- TODO
+      | _ => panic! "need kind annotations for quantifiers right now"  -- TODO fill these in on the "way back up"
+    let q := QuantItem.ofASTQuantItem q
+    let body ← quoteTypschm e (q::ctx) ⟨qs, t⟩
+    return .forallE .anonymous head body .default
 
-def testTypeQuotation (stx : Lean.Elab.Term.TermElabM (Lean.TSyntax `typ)) :
-    Lean.Elab.Term.TermElabM Lean.Format := do
-  match elabTyp (← stx) with
+/- Testing -/
+
+def sailUnit : RegisteredType where
+  type := q(Unit)
+
+def sailBool : RegisteredType where
+  type := q(_root_.Bool)
+
+def sailBits : RegisteredType where
+  params := [.int]
+  type := q(BitVec ∘ Int.toNat ∘ ULift.down)  -- TODO see if the `ulift`s are getting too annoying to work with
+
+/-- Example environment for tests -/
+def std_env : Env where
+  typ_ids := Std.HashMap.ofList
+    [(.ident "bool", sailBool)
+     , (.ident "bits", sailBits)]
+
+def testTypeQuotation (stx : TermElabM (Lean.TSyntax `typschm)) : TermElabM Lean.Format := do
+  match elabTypschm (← stx) with
   | .error err => throwError err
   | .ok astx =>
-    let qt ← quoteTyp std_env astx
+    let qt ← quoteTypschm std_env [] astx
     let qt ← Core.betaReduce (← Meta.whnf qt)
-    Lean.Meta.ppExpr qt
+    let qt' := (← Meta.simpOnlyNames [`Function.comp_apply] qt).1
+    Lean.Meta.ppExpr qt'
 
-#eval testTypeQuotation `(typ|(bool, fin(5)) -> bool)
+#eval testTypeQuotation `(typschm| forall Int @m, Int @n. (bits(@m), bits(@n)) -> bits(@m + @n))
