@@ -82,18 +82,18 @@ It should have the type `(liftKindListToProduct (args.map AST.TypArg.kind)).1`.
 Also returns its universe level. -/
 def liftTypArgListToTuple : List AST.TypArg → Expr
   | [] => (q(.intro) : Q(True))
-  | [a] => quoteTypArg ctx a
-  | (a::as) =>
-    let lhs := quoteTypArg ctx a
-    let l := a.kind.level
-    let tlhs := quoteKind a.kind
-    let rhs := liftTypArgListToTuple as
-    let (trhs, l') := liftKindListToProduct (as.map (·.kind))
+  | [arg] => quoteTypArg ctx arg
+  | (arg::args) =>
+    let lhs := quoteTypArg ctx arg
+    let l := arg.kind.level
+    let tlhs := quoteKind arg.kind
+    let rhs := liftTypArgListToTuple args
+    let (trhs, l') := liftKindListToProduct (args.map (·.kind))
     mkApp4 (mkConst `PProd.mk [l, l']) tlhs trhs lhs rhs
 
 structure RegisteredType where
   params : List AST.Kind := []
-  type : Expr
+  typ : Expr
 
 instance : Repr RegisteredType where
   reprPrec o _ :=
@@ -142,14 +142,14 @@ partial def quoteTypschm (e : Env) (ctx : TypeVarCtx := []) : AST.Typschm → Te
 /- Testing -/
 
 def sailUnit : RegisteredType where
-  type := q(Unit)
+  typ := q(Unit)
 
 def sailBool : RegisteredType where
-  type := q(_root_.Bool)
+  typ := q(_root_.Bool)
 
 def sailBits : RegisteredType where
   params := [.int]
-  type := q(BitVec ∘ Int.toNat)  -- TODO see if the `ulift`s are getting too annoying to work with
+  typ := q(BitVec ∘ Int.toNat)  -- TODO see if the `ulift`s are getting too annoying to work with
 
 /-- Example environment for tests -/
 def std_env : Env where

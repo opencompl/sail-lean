@@ -95,7 +95,7 @@ syntax "`[typ|" typ "]" : term
 
 /- `typ_arg` (type constructor arguments of all kinds) -/
 syntax nexp : typ_arg
-syntax typ : typ_arg
+--syntax typ : typ_arg
 --syntax n_constraint : typ_arg
 
 syntax "`[typ_arg|" typ_arg "]" : term
@@ -199,7 +199,7 @@ syntax lit : pat  -- literal constant pattern
 syntax "_" : pat  -- wildcard
 syntax pat "|" pat : pat  -- pattern disjunction
 syntax "~" pat : pat  -- pattern negation
-syntax "(" pat "as" id ")" : pat  -- named pattern
+--syntax "(" pat "as" id ")" : pat  -- named pattern  TODO this makes the elab fail, find out why
 syntax "(" typ ")" pat : pat  -- typed pattern
 syntax id : pat  -- identifier
 syntax pat typ_pat : pat  -- bind pattern to type variable

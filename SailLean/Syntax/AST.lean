@@ -91,3 +91,99 @@ structure Typschm where
   quants : TypQuant
   typ : Typ
   deriving Repr
+
+inductive Lit where
+  | unit
+  | zero
+  | one
+  | true
+  | false
+  | num
+  | string
+  | undefined
+  | real
+
+inductive Loop where
+  | while
+  | until
+
+inductive TypPat where
+  | wild
+  | var (k : KId)
+  | app (i : Id) (ps : List TypPat)
+
+inductive Pat where
+  | lit (l : Lit)
+  | wild
+  | or (p₁ p₂ : Pat)
+  | not (p : Pat)
+  | as (p : Pat) (i : Id)
+  | typ (t : Typ) (p : Pat)
+  | var (p : Pat) (tp : TypPat)
+  | app (i : Id) (ps : List Pat)
+  | vector (ps : List Pat)
+  | vectorConcat (ps : List Pat)
+  | vectorSubrange (i : Id) (n₁ n₂ : Nat)
+  | tuple (ps : List Pat)
+  | list (ps : List Pat)
+  | cons (p₁ p₂ : Pat)
+  | stringAppend (ps : List Pat)
+  | struct (fps : List (Id × Pat))
+
+mutual
+
+inductive InternalLoopMeasure where
+  | none
+  | some (e : Exp)
+
+inductive Exp where
+  | block (es : List Exp)
+  | id (i : Id)
+  | lit (l : Lit)
+  | typ (t : Typ) (e : Exp)
+  | app (i : Id) (es : List Exp)
+  | appInfix (e : Exp) (i : Id) (e' : Exp)
+  | tuple (es : List Exp)
+  | if (c t e : Exp)
+  | loop (l : Loop) (i : InternalLoopMeasure)
+  | for (i : Id) (f t b : Exp) (o : Order)
+  | vector (es : List Exp)
+  | vectorAccess (e e' : Exp)
+  | vectorSubrange (e e₁ e₂ : Exp)
+  | vectorUpdate (e e₁ e₂ : Exp)
+  | vectorUPdateSubrange (e e₁ e₂ e₃ : Exp)
+  | vectorAppend (e₁ e₂ : Exp)
+  | list (es : List Exp)
+  | cons (e₁ e₂ : Exp)
+  | struct (fs : FExp)
+  | structUpdate (e : Exp) (fs : FExp)
+  | field (e : Exp) (i : Id)
+  | match (e : Exp) (ps : PExp)
+  | let (e : Exp)  --- TODO ???
+  | assign (l : LExp) (e : Exp)
+  | sizeof (n : NExp)
+  | return (e : Exp)
+  | exit (e : Exp)
+  | ref (i : Id)
+  | try (e : Exp) (ps : PExp)
+  | assert (e e' : Exp)
+
+inductive FExp where
+  | fexp (i : Id) (e : Exp)
+
+inductive PExp where
+  | exp (p : Pat) (e : Exp)
+  | when (p : Pat) (e₁ e : Exp)
+
+inductive LExp where
+  | id (i : Id)
+  | deref (e : Exp)
+  | app (i : Id) (es : List Exp)
+  | typ (t : Typ) (i : Id)
+  | tuple (ls : List LExp)
+  | vectorConcat (ls : List LExp)
+  | vector (l : LExp) (e : Exp)
+  | vectorRange (l : LExp) (es : List Exp)
+  | field (l : LExp) (e : Id)
+
+end
