@@ -43,7 +43,7 @@ abbrev TypeVarCtx := List QuantItem
 
 variable (ctx : TypeVarCtx)
 
-def quoteNExp : AST.NExp → Q(Nat)
+def quoteNExp : AST.NExp → Q(_root_.Int)
   | .constant n => q($n)
   | .var k =>
     -- Look up the variable in the context to obtain the DeBruĳn index
@@ -52,7 +52,9 @@ def quoteNExp : AST.NExp → Q(Nat)
     | .none => panic! "variable not found in context!"
   | .sum m n => q($(quoteNExp m) + $(quoteNExp n))
   | .product m n => q($(quoteNExp m) * $(quoteNExp n))
-  | .subtraction m n => q($(quoteNExp m) - $(quoteNExp n))  -- TODO[semantics] is this really a monus
+  | .subtraction m n => q($(quoteNExp m) - $(quoteNExp n))
+  | .neg n => q(-$(quoteNExp n))
+  | .exponential n => q(2^$(quoteNExp n).toNat) -- TODO[semantics] negative exponents?
   | _ => panic! "not able to quote this nexp yet!"
 
 def quoteTypArg : (a : AST.TypArg) → Expr
