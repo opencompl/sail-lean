@@ -98,8 +98,8 @@ inductive Lit where
   | one
   | true
   | false
-  | num
-  | string
+  | num (n : Nat)
+  | string (s : String)
   | undefined
   | real
 

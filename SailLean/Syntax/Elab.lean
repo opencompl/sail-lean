@@ -131,3 +131,60 @@ def elabTypschm : TSyntax `typschm → Except String AST.Typschm
       let t ← elabTyp t
       .ok { quants := [], typ := t }
   | _  => .error "failed to elab typschm"
+
+def elabLit : TSyntax `lit → Except String AST.Lit
+  | `(lit| ()) => .ok .unit
+  | `(lit| bitzero) => .ok .zero
+  | `(lit| bitone) => .ok .one
+  | `(lit| true) => .ok .true
+  | `(lit| false) => .ok .false
+  | `(lit| $n:num) => .ok <| .num n.getNat
+  | `(lit| $s:str) => .ok <| .string s.getString
+  | `(lit| undefined) => .ok .undefined
+  | `(lit| real) => .ok .real
+  | _ => .error "failed to elab lit"
+
+partial def elabTypPat : TSyntax `typ_pat → Except String AST.TypPat
+  | `(typ_pat| _) => .ok .wild
+  | `(typ_pat| $k:kid) => .var <$> elabKId k
+  | `(typ_pat| $i:id($ts:typ_pat,*)) => do
+      let i ← elabId i
+      let ts ← ts.getElems.mapM elabTypPat
+      .ok <| .app i ts.toList
+  | _ => .error "failed to elab typ_pat"
+
+partial def elabPat : TSyntax `pat → Except String AST.Pat
+  --| `(pat| $l:lit) => _
+  | _ => .error "failed to elab pat"
+
+def elabLoop : TSyntax `loop → Except String AST.Loop
+  | `(loop| while) => .ok .while
+  | `(loop| until) => .ok .until
+  | _ => .error "failed to elab loop"
+
+mutual
+
+def elabInternalLoopMeasure : TSyntax `termination_measure → Except String AST.InternalLoopMeasure
+  | `(internal_loop_measure| termination_measure { $e:exp }) => .some <$> elabExp e
+  | _ => .error "failed to elab internal loop measure"
+
+def elabExp : TSyntax `exp → Except String AST.Exp
+  --| `(exp| { $es;*}) => _
+  --| `(exp| $i:id) => _
+  --| `(exp| $l:lit) => _
+  --| `(exp| $l:loop)
+  | _ => .error "failed to elab exp"
+
+def elabLExp : TSyntax `lexp → Except String AST.LExp
+  --| `(lexp| deref $e:exp) => .deref <$> elabExp e
+  | _ => .error "failed to elab lexp"
+
+def elabFExp : TSyntax `fexp → Except String AST.FExp
+  --| `(fexp| $i:id = $e:exp) => _
+  | _ => .error "failed to elab fexp"
+
+def elabPExp : TSyntax `pexp → Except String AST.PExp
+  --| `(pexp| $p:pat => $e:exp) => _
+  | _ => .error "failed to elab pexp"
+
+end
