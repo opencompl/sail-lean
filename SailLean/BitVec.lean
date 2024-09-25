@@ -163,6 +163,13 @@ def checkBVPatLengths (lens : Array (Option Nat)) (pss : Array (Array BVPat)) : 
         else
           patLen := some pLen
 
+-- We use this to gather all the conditions expressing that the
+-- previous pattern matches failed. This allows in turn to prove
+-- exaustivity of the pattern matching.
+abbrev dite_gather {α : Sort u} {old : Prop} (c : Prop) [h : Decidable c]
+        (t : old ∧ c → α) (e : old ∧ ¬ c → α) (ho : old) : α :=
+  h.casesOn (λ hc => e (And.intro ho hc)) (λ hc => t (And.intro ho hc))
+
 @[term_elab matchBv]
 partial
 def elabMatchBv : TermElab := fun stx typ? =>
@@ -188,18 +195,21 @@ def elabMatchBv : TermElab := fun stx typ? =>
 
     checkBVPatLengths lens pss
 
-    let mut result := if let some rhsElse := rhsElse? then
-      rhsElse
-    else
-      ← `(by exfalso; bv_decide)
+    let mut result :=
+      ← if let some rhsElse := rhsElse? then
+          `(Function.const _ $rhsElse)
+        else
+          `(fun _ => by exfalso; bv_decide)
 
     for ps in pss.reverse, rhs in rhss.reverse do
       let test ← liftMacroM <| genBVPatMatchTest xs ps
       let rhs ← liftMacroM <| declBVPatVars xs ps rhs
-      result ← `(dite $test (fun _ => $rhs) (fun hn => $result))
-    let res ← liftMacroM <| `($result)
+      result ← `(dite_gather $test (Function.const _ $rhs) $result)
+    let res ← liftMacroM <| `($result True.intro)
     elabTerm res typ?
   | _ => throwError "invalid syntax"
+
+----------- TESTS -----------
 
 def test_1 (x : BitVec 32) : BitVec 16 :=
    match_bv x with
